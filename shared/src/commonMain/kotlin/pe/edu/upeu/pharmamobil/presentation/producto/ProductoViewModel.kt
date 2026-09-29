@@ -81,11 +81,9 @@ class ProductoViewModel(
     }
 
     fun registrar() {
-
         if (_uiState.value.registrando) return
 
         viewModelScope.launch {
-
             _uiState.update {
                 it.copy(registrando = true, mensajeExito = null)
             }
@@ -95,21 +93,22 @@ class ProductoViewModel(
             registrarProducto(
                 nombre = formulario.nombre,
                 precio = formulario.precio,
-                stock = formulario.stock
+                stock = formulario.stock,
+                descripcion = formulario.descripcion ?: "",
+                categoria = formulario.categoria ?: "Sin categoría"
             ).fold(
-                onSuccess = { producto ->
+                onSuccess = { id ->  // ← id es Long, no Producto
                     _uiState.update {
                         it.copy(
                             registrando = false,
                             formulario = FormularioProducto(),
-                            mensajeExito = "Producto \"${producto.nombre}\" registrado correctamente"
+                            mensajeExito = "Producto registrado correctamente (ID: $id)"  // ← CORREGIDO
                         )
                     }
                     cargarProductos()
                 },
                 onFailure = { fallo ->
                     when (fallo) {
-
                         is ProductoInvalidoException -> _uiState.update {
                             it.copy(
                                 registrando = false,

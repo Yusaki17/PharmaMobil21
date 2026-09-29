@@ -26,5 +26,7 @@ data class FormularioProducto(
     val stock: String = "",
     val nombreError: String? = null,
     val precioError: String? = null,
-    val stockError: String? = null
+    val stockError: String? = null,
+    val descripcion: String = "",
+    val categoria: String = "Farmacia",
 )

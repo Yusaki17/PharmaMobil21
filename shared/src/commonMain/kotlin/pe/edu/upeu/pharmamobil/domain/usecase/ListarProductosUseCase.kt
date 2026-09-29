@@ -6,8 +6,7 @@ import pe.edu.upeu.pharmamobil.domain.repository.ProductoRepository
 class ListarProductosUseCase(
     private val productoRepository: ProductoRepository
 ) {
-
-    suspend operator fun invoke(): Result<List<Producto>> = resultadoDe {
-        productoRepository.listar()
+    suspend operator fun invoke(): Result<List<Producto>> {
+        return productoRepository.listar()
     }
 }
