@@ -9,7 +9,6 @@ data class ProductoDto(
     val title: String,
     val price: Double,
     val description: String = "",
-    val images: List<String> = emptyList(),
     @SerialName("category")
     val categoria: CategoriaDto? = null
 )

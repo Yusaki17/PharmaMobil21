@@ -19,6 +19,12 @@ dependencies {
     debugImplementation(libs.compose.uiTooling)
     implementation(libs.koin.android)
 }
+configurations.all {
+    resolutionStrategy {
+        force("com.squareup.okhttp3:okhttp:4.12.0")
+        force("com.squareup.okhttp3:okhttp-android:4.12.0")
+    }
+}
 
 android {
     namespace = "pe.edu.upeu.pharmamobil"
