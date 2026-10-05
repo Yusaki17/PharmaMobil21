@@ -16,7 +16,9 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -27,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,7 +54,7 @@ fun ProductoScreen(
 
         FormularioProductoCard(
             formulario = uiState.formulario,
-            registrando = uiState.registrando,
+            registrando = uiState.operacion is ProductoUiState.Operacion.EnCurso,
             onNombreChange = viewModel::onNombreChange,
             onPrecioChange = viewModel::onPrecioChange,
             onStockChange = viewModel::onStockChange,
@@ -104,7 +107,12 @@ fun ProductoScreen(
                             items = fase.productos,
                             key = { it.id }
                         ) { producto ->
-                            ProductoItem(producto)
+                            ProductoItem(
+                                producto = producto,
+                                onEditar = { viewModel.prepararEdicion(producto) },
+                                onEliminar = { viewModel.eliminar(producto.id) },
+                                onReactivar = { viewModel.reactivar(producto) }  // ← AGREGAR
+                            )
                         }
                     }
 
@@ -230,65 +238,103 @@ private fun EncabezadoInventario(
 
 @Composable
 private fun ProductoItem(
-    producto: ProductoUi
+    producto: ProductoUi,
+    onEditar: () -> Unit = {},
+    onEliminar: () -> Unit = {},
+    onReactivar: () -> Unit = {}
 ) {
-
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (producto.estado)
+                MaterialTheme.colorScheme.surface
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
-
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
             Surface(
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                color = if (producto.estado)
+                    MaterialTheme.colorScheme.secondaryContainer
+                else
+                    MaterialTheme.colorScheme.errorContainer,
+                contentColor = if (producto.estado)
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                else
+                    MaterialTheme.colorScheme.onErrorContainer
             ) {
-
                 Icon(
                     imageVector = Icons.Default.Medication,
                     contentDescription = null,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(20.dp)
+                    modifier = Modifier.padding(8.dp).size(20.dp)
                 )
             }
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = producto.nombre,
                     style = MaterialTheme.typography.titleSmall
                 )
-
                 Text(
                     text = "${producto.precio}  ·  ${producto.stock}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                // Badge de estado
+                if (!producto.estado) {
+                    Text(
+                        text = "INACTIVO",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
-            if (producto.requiereReposicion) {
+            // Botones de acción
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (producto.estado) {
+                    // Producto activo: Editar y Eliminar
+                    FilledTonalButton(onClick = onEditar) {
+                        Text("Editar")
+                    }
+                    Button(
+                        onClick = onEliminar,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Eliminar")
+                    }
+                } else {
+                    // Producto inactivo: Solo Reactivar
+                    Button(
+                        onClick = onReactivar,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Reactivar")
+                    }
+                }
+            }
 
+            if (producto.requiereReposicion && producto.estado) {
                 Surface(
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer
                 ) {
-
                     Text(
                         text = "Reponer",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(
-                            horizontal = 8.dp,
-                            vertical = 4.dp
-                        )
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }

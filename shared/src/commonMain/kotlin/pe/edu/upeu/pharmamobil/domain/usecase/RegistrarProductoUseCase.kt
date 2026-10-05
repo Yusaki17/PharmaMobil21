@@ -27,34 +27,35 @@ class RegistrarProductoUseCase(
         stock: String,
         descripcion: String = "",
         categoria: String = "Sin categoría"
-    ): Result<Long> {
+    ): Result<Producto> { // ← CAMBIO: Ahora devuelve Result<Producto>
 
         val errores = ErroresDeProducto(
             nombre = validarNombre(nombre),
             precio = validarPrecio(precio),
             stock = validarStock(stock)
-            // descripcion y categoria son opcionales, no requieren validación estricta
         )
 
         if (errores.hayErrores) {
             return Result.failure(ProductoInvalidoException(errores))
         }
 
-        return productoRepository.registrar(
-            Producto(
-                id = 0L,
-                nombre = nombre.trim(),
-                precio = precio.toDouble(),
-                descripcion = descripcion.trim(),
-                categoria = categoria.trim(),
-                stock = stock.toInt()
+        // El Caso de Uso es quien envuelve la llamada en Result
+        return runCatching {
+            productoRepository.registrar(
+                Producto(
+                    id = 0L, // El backend asignará el ID real
+                    nombre = nombre.trim(),
+                    precio = precio.toDouble(),
+                    descripcion = descripcion.trim(),
+                    categoria = categoria.trim(),
+                    stock = stock.toInt()
+                )
             )
-        )
+        }
     }
 
-    private fun validarNombre(nombre: String): String? {
-        return if (nombre.isBlank()) "El nombre es obligatorio" else null
-    }
+    private fun validarNombre(nombre: String): String? =
+        if (nombre.isBlank()) "El nombre es obligatorio" else null
 
     private fun validarPrecio(precio: String): String? {
         val precioValor = precio.toDoubleOrNull()

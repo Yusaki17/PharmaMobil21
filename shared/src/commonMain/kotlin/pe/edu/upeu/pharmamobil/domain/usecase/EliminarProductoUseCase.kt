@@ -1,14 +1,14 @@
 package pe.edu.upeu.pharmamobil.domain.usecase
 
-import pe.edu.upeu.pharmamobil.domain.model.Producto
 import pe.edu.upeu.pharmamobil.domain.repository.ProductoRepository
 
-class ListarProductosUseCase(
+class EliminarProductoUseCase(
     private val productoRepository: ProductoRepository
 ) {
-    suspend operator fun invoke(): Result<List<Producto>> {
+    suspend operator fun invoke(id: Long): Result<Unit> {
         return runCatching {
-            productoRepository.listar()
+            productoRepository.eliminar(id)
+            Unit // Retorna Unit explícitamente
         }
     }
 }
