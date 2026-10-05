@@ -27,7 +27,7 @@ class RegistrarProductoUseCase(
         stock: String,
         descripcion: String = "",
         categoria: String = "Sin categoría"
-    ): Result<Producto> { // ← CAMBIO: Ahora devuelve Result<Producto>
+    ): Result<Producto> {
 
         val errores = ErroresDeProducto(
             nombre = validarNombre(nombre),
@@ -39,11 +39,10 @@ class RegistrarProductoUseCase(
             return Result.failure(ProductoInvalidoException(errores))
         }
 
-        // El Caso de Uso es quien envuelve la llamada en Result
         return runCatching {
             productoRepository.registrar(
                 Producto(
-                    id = 0L, // El backend asignará el ID real
+                    id = 0L,
                     nombre = nombre.trim(),
                     precio = precio.toDouble(),
                     descripcion = descripcion.trim(),
@@ -54,15 +53,16 @@ class RegistrarProductoUseCase(
         }
     }
 
-    private fun validarNombre(nombre: String): String? =
-        if (nombre.isBlank()) "El nombre es obligatorio" else null
+    private fun validarNombre(nombre: String): String? {
+        return if (nombre.isBlank()) "El nombre es obligatorio" else null
+    }
 
     private fun validarPrecio(precio: String): String? {
         val precioValor = precio.toDoubleOrNull()
         return when {
             precio.isBlank() -> "El precio es obligatorio"
             precioValor == null || !precioValor.isFinite() -> "El precio debe ser un número válido"
-            precioValor <= 0 -> "El precio debe ser mayor a 0"
+            precioValor <= 0 -> "El precio debe ser mayor a 0"  // ← Esto debería atrapar -4
             else -> null
         }
     }
@@ -72,7 +72,7 @@ class RegistrarProductoUseCase(
         return when {
             stock.isBlank() -> "El stock es obligatorio"
             stockValor == null -> "El stock debe ser un número entero"
-            stockValor < 0 -> "El stock no puede ser negativo"
+            stockValor < 0 -> "El stock no puede ser negativo"  // ← Esto debería atrapar -20
             else -> null
         }
     }

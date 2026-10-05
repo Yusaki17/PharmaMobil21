@@ -13,6 +13,7 @@ import pe.edu.upeu.pharmamobil.domain.model.Producto
 import pe.edu.upeu.pharmamobil.domain.usecase.ActualizarProductoUseCase
 import pe.edu.upeu.pharmamobil.domain.usecase.EliminarProductoUseCase
 import pe.edu.upeu.pharmamobil.domain.usecase.ListarProductosUseCase
+import pe.edu.upeu.pharmamobil.domain.usecase.ProductoInvalidoException
 import pe.edu.upeu.pharmamobil.domain.usecase.RegistrarProductoUseCase
 
 class ProductoViewModel(
@@ -139,7 +140,30 @@ class ProductoViewModel(
                     cargarProductos()
                 },
                 onFailure = { fallo ->
-                    manejarFallo(fallo)
+                    // ← AQUÍ ESTÁ LA CLAVE: Atrapar la excepción de validación del dominio
+                    when (fallo) {
+                        is ProductoInvalidoException -> {
+                            println(" [DEBUG] Error de validación capturado:")
+                            println("   - Nombre: ${fallo.errores.nombre}")
+                            println("   - Precio: ${fallo.errores.precio}")
+                            println("   - Stock: ${fallo.errores.stock}")
+
+                            _uiState.update {
+                                it.copy(
+                                    operacion = ProductoUiState.Operacion.Inactiva,
+                                    formulario = it.formulario.copy(
+                                        nombreError = fallo.errores.nombre,
+                                        precioError = fallo.errores.precio,
+                                        stockError = fallo.errores.stock
+                                    )
+                                )
+                            }
+                        }
+                        else -> {
+                            println(" [DEBUG] Otro tipo de error: ${fallo.message}")
+                            manejarFallo(fallo)
+                        }
+                    }
                 }
             )
         }
@@ -188,50 +212,32 @@ class ProductoViewModel(
 
     // === PREPARAR EDICIÓN ===
     fun prepararEdicion(productoUi: ProductoUi) {
-        println(" Buscando producto con ID: ${productoUi.id}")
-        println(" Productos disponibles: ${productosCompletos.size}")
-        productosCompletos.forEach { p ->
-            println("   - ID: ${p.id}, Nombre: ${p.nombre}")
-        }
+        // 1. Buscamos el producto en la lista local (es instantáneo, no bloquea)
+        val producto = productosCompletos.find { it.id == productoUi.id }
 
-        val productoCompleto = productosCompletos.find { it.id == productoUi.id }
+        // 2. Si no lo encuentra, usamos los datos de la UI como respaldo
+        val nombre = producto?.nombre ?: productoUi.nombre
+        val precio = producto?.precio?.toString() ?: productoUi.precio.replace("S/ ", "").trim()
+        val stock = producto?.stock?.toString() ?: productoUi.stock.replace(" u.", "").trim()
+        val descripcion = producto?.descripcion ?: ""
+        val categoria = producto?.categoria ?: "Farmacia"
 
-        if (productoCompleto == null) {
-            println("❌ No se encontró el producto con ID ${productoUi.id}")
-            // Fallback: usar los datos del ProductoUi directamente
-            _uiState.update {
-                it.copy(
-                    formulario = FormularioProducto(
-                        nombre = productoUi.nombre,
-                        precio = productoUi.precio.replace("S/ ", "").trim(),
-                        stock = productoUi.stock.replace(" u.", "").trim(),
-                        descripcion = "",
-                        categoria = "Farmacia"
-                    ),
-                    operacion = ProductoUiState.Operacion.EnCurso(
-                        ProductoUiState.Operacion.Tipo.Actualizar
-                    )
-                )
-            }
-            return
-        }
-
-        productoEnEdicion = productoCompleto
-        _uiState.update {
-            it.copy(
-                formulario = FormularioProducto(
-                    nombre = productoCompleto.nombre,
-                    precio = productoCompleto.precio.toString(),
-                    stock = productoCompleto.stock.toString(),
-                    descripcion = productoCompleto.descripcion,
-                    categoria = productoCompleto.categoria
-                ),
-                operacion = ProductoUiState.Operacion.EnCurso(
-                    ProductoUiState.Operacion.Tipo.Actualizar
-                )
-            )
-        }
-        println(" Producto cargado para edición: ${productoCompleto.nombre}")
+        // 3. Actualizamos el estado de forma limpia y directa
+        productoEnEdicion = producto
+        _uiState.value = _uiState.value.copy(
+            formulario = FormularioProducto(
+                nombre = nombre,
+                precio = precio,
+                stock = stock,
+                descripcion = descripcion,
+                categoria = categoria,
+                nombreError = null,
+                precioError = null,
+                stockError = null
+            ),
+            operacion = ProductoUiState.Operacion.EnCurso(ProductoUiState.Operacion.Tipo.Actualizar),
+            mensajeExito = null
+        )
     }
     fun reactivar(productoUi: ProductoUi) {
         viewModelScope.launch {
