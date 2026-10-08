@@ -48,6 +48,7 @@ kotlin {/*
             implementation(libs.ktor.client.okhttp)
             implementation(libs.koin.core)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.koin.android)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

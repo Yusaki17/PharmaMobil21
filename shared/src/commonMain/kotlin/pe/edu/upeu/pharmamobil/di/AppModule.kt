@@ -13,13 +13,12 @@ import pe.edu.upeu.pharmamobil.domain.repository.ProductoRepository
 import pe.edu.upeu.pharmamobil.domain.usecase.*
 import pe.edu.upeu.pharmamobil.presentation.cliente.ClienteViewModel
 import pe.edu.upeu.pharmamobil.presentation.producto.ProductoViewModel
+import pe.edu.upeu.pharmamobil.presentation.detalle.DetalleProductoViewModel // <-- 1. IMPORTAR ESTO
 
 // 1. Módulo de Red
 val networkModule = module {
-    single { crearHttpClient() } // Asegúrate de que esta función no requiera parámetros o ajusta según tu HttpClientFactory
+    single { crearHttpClient() }
     single { ProductoApi(get()) }
-
-    //  CORREGIDO: ProductoRepositoryImpl ahora requiere 2 parámetros (api y categoriaPorDefecto)
     single<ProductoRepository> {
         ProductoRepositoryImpl(get(), categoriaPorDefecto = 1L)
     }
@@ -57,6 +56,10 @@ val presentationModule = module {
     viewModel {
         ClienteViewModel(get(), get())
     }
+
+    viewModel {
+        DetalleProductoViewModel(get()) // Koin inyectará automáticamente el Compartidor
+    }
 }
 
 fun initKoin(configuracionAdicional: KoinApplication.() -> Unit = {}) {
@@ -66,7 +69,8 @@ fun initKoin(configuracionAdicional: KoinApplication.() -> Unit = {}) {
             networkModule,
             dataModule,
             domainModule,
-            presentationModule
+            presentationModule,
+            platformModule // <-- 3. AGREGAR EL PLATFORM MODULE AQUÍ
         )
     }
 }

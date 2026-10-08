@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -22,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,8 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import pe.edu.upeu.pharmamobil.domain.platform.Compartidor
 import pe.edu.upeu.pharmamobil.presentation.components.EstadoVacio
 import pe.edu.upeu.pharmamobil.presentation.components.MensajeExito
 import pe.edu.upeu.pharmamobil.presentation.components.ValidatedTextField
@@ -40,7 +44,8 @@ import pe.edu.upeu.pharmamobil.presentation.components.ValidatedTextField
 @Composable
 fun ProductoScreen(
     viewModel: ProductoViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compartidor: Compartidor
 ) {
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -111,7 +116,13 @@ fun ProductoScreen(
                                 producto = producto,
                                 onEditar = { viewModel.prepararEdicion(producto) },
                                 onEliminar = { viewModel.eliminar(producto.id) },
-                                onReactivar = { viewModel.reactivar(producto) }  // ← AGREGAR
+                                onReactivar = { viewModel.reactivar(producto) } ,
+                                onCompartir = {
+
+                                    val texto = " ${producto.nombre}\n ${producto.precio}\n Stock: ${producto.stock}"
+                                    compartidor.compartir(texto)
+                                }
+                                // ← AGREGAR
                             )
                         }
                     }
@@ -241,7 +252,8 @@ private fun ProductoItem(
     producto: ProductoUi,
     onEditar: () -> Unit = {},
     onEliminar: () -> Unit = {},
-    onReactivar: () -> Unit = {}
+    onReactivar: () -> Unit = {},
+    onCompartir: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -253,10 +265,13 @@ private fun ProductoItem(
         )
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth() // <-- Asegura que ocupe todo el ancho
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // 1. Ícono
             Surface(
                 shape = CircleShape,
                 color = if (producto.estado)
@@ -275,10 +290,13 @@ private fun ProductoItem(
                 )
             }
 
+            // 2. Información del producto
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = producto.nombre,
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1, // <-- EVITA QUE EL TEXTO SE VAYA A OTRA LÍNEA
+                    overflow = TextOverflow.Ellipsis // <-- PONE "..." SI ES MUY LARGO
                 )
                 Text(
                     text = "${producto.precio}  ·  ${producto.stock}",
@@ -286,7 +304,6 @@ private fun ProductoItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // Badge de estado
                 if (!producto.estado) {
                     Text(
                         text = "INACTIVO",
@@ -295,12 +312,39 @@ private fun ProductoItem(
                         fontWeight = FontWeight.Bold
                     )
                 }
+
+                // Badge de reposición (Movido aquí para no romper el Row de botones)
+                if (producto.requiereReposicion && producto.estado) {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text(
+                            text = "Reponer",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
             }
 
-            // Botones de acción
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // 3. Botones de acción
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Botón de compartir
+                IconButton(onClick = onCompartir) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Compartir",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
                 if (producto.estado) {
-                    // Producto activo: Editar y Eliminar
                     FilledTonalButton(onClick = onEditar) {
                         Text("Editar")
                     }
@@ -313,7 +357,6 @@ private fun ProductoItem(
                         Text("Eliminar")
                     }
                 } else {
-                    // Producto inactivo: Solo Reactivar
                     Button(
                         onClick = onReactivar,
                         colors = ButtonDefaults.buttonColors(
@@ -322,20 +365,6 @@ private fun ProductoItem(
                     ) {
                         Text("Reactivar")
                     }
-                }
-            }
-
-            if (producto.requiereReposicion && producto.estado) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                ) {
-                    Text(
-                        text = "Reponer",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
                 }
             }
         }
