@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
-kotlin {
+kotlin {/*
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -17,7 +17,7 @@ kotlin {
             baseName = "Shared"
             isStatic = true
         }
-    }
+    }*/
 
 
     android {
@@ -68,9 +68,10 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
         }
+        /*
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
-        }
+        }*/
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
