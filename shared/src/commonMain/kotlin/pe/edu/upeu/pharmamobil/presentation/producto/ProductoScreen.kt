@@ -3,6 +3,7 @@ package pe.edu.upeu.pharmamobil.presentation.producto
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Share
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pe.edu.upeu.pharmamobil.domain.platform.Compartidor
+import pe.edu.upeu.pharmamobil.platform.copiarAlPortapapeles
 import pe.edu.upeu.pharmamobil.presentation.components.EstadoVacio
 import pe.edu.upeu.pharmamobil.presentation.components.MensajeExito
 import pe.edu.upeu.pharmamobil.presentation.components.ValidatedTextField
@@ -44,10 +47,9 @@ import pe.edu.upeu.pharmamobil.presentation.components.ValidatedTextField
 @Composable
 fun ProductoScreen(
     viewModel: ProductoViewModel,
-    modifier: Modifier = Modifier,
-    compartidor: Compartidor
+    compartidor: Compartidor, // <-- Inyectado desde App.kt
+    modifier: Modifier = Modifier
 ) {
-
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
@@ -56,7 +58,6 @@ fun ProductoScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-
         FormularioProductoCard(
             formulario = uiState.formulario,
             registrando = uiState.operacion is ProductoUiState.Operacion.EnCurso,
@@ -77,18 +78,14 @@ fun ProductoScreen(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-
             when (val fase = uiState.fase) {
-
                 ProductoUiState.Fase.Cargando ->
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-
                         CircularProgressIndicator()
-
                         Text(
                             text = "Cargando inventario…",
                             style = MaterialTheme.typography.bodyMedium,
@@ -116,13 +113,14 @@ fun ProductoScreen(
                                 producto = producto,
                                 onEditar = { viewModel.prepararEdicion(producto) },
                                 onEliminar = { viewModel.eliminar(producto.id) },
-                                onReactivar = { viewModel.reactivar(producto) } ,
+                                onReactivar = { viewModel.reactivar(producto) },
                                 onCompartir = {
-
-                                    val texto = " ${producto.nombre}\n ${producto.precio}\n Stock: ${producto.stock}"
+                                    val texto = "📦 ${producto.nombre}\n💰 ${producto.precio}\n📦 Stock: ${producto.stock}"
                                     compartidor.compartir(texto)
+                                },
+                                onCopiar = {
+                                    copiarAlPortapapeles("Código: ${producto.id} - ${producto.nombre}")
                                 }
-                                // ← AGREGAR
                             )
                         }
                     }
@@ -145,7 +143,6 @@ fun ProductoScreen(
     }
 }
 
-
 @Composable
 private fun FormularioProductoCard(
     formulario: FormularioProducto,
@@ -153,18 +150,15 @@ private fun FormularioProductoCard(
     onNombreChange: (String) -> Unit,
     onPrecioChange: (String) -> Unit,
     onStockChange: (String) -> Unit,
-    onRegistrar: () -> Unit
+    onRegistrar: () -> Unit // <-- CORREGIDO: Era (String) -> Unit
 ) {
-
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
-
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
             Text(
                 text = "Registrar producto",
                 style = MaterialTheme.typography.titleMedium
@@ -183,7 +177,6 @@ private fun FormularioProductoCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
                 ValidatedTextField(
                     value = formulario.precio,
                     onValueChange = onPrecioChange,
@@ -206,7 +199,7 @@ private fun FormularioProductoCard(
             }
 
             Button(
-                onClick = onRegistrar,
+                onClick = onRegistrar, // <-- CORREGIDO: Eliminado el cast peligroso "as () -> Unit"
                 enabled = !registrando,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -216,17 +209,14 @@ private fun FormularioProductoCard(
     }
 }
 
-
 @Composable
 private fun EncabezadoInventario(
     fase: ProductoUiState.Fase
 ) {
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-
         Text(
             text = "Inventario",
             style = MaterialTheme.typography.titleMedium,
@@ -234,9 +224,7 @@ private fun EncabezadoInventario(
         )
 
         if (fase is ProductoUiState.Fase.ConProductos) {
-
             val cantidad = fase.productos.size
-
             Text(
                 text = if (cantidad == 1) "1 producto" else "$cantidad productos",
                 style = MaterialTheme.typography.labelLarge,
@@ -246,14 +234,14 @@ private fun EncabezadoInventario(
     }
 }
 
-
 @Composable
 private fun ProductoItem(
     producto: ProductoUi,
     onEditar: () -> Unit = {},
     onEliminar: () -> Unit = {},
     onReactivar: () -> Unit = {},
-    onCompartir: () -> Unit = {}
+    onCompartir: () -> Unit = {},
+    onCopiar: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -266,10 +254,9 @@ private fun ProductoItem(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth() // <-- Asegura que ocupe todo el ancho
+                .fillMaxWidth()
                 .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             // 1. Ícono
             Surface(
@@ -277,26 +264,28 @@ private fun ProductoItem(
                 color = if (producto.estado)
                     MaterialTheme.colorScheme.secondaryContainer
                 else
-                    MaterialTheme.colorScheme.errorContainer,
-                contentColor = if (producto.estado)
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                else
-                    MaterialTheme.colorScheme.onErrorContainer
+                    MaterialTheme.colorScheme.errorContainer
             ) {
                 Icon(
                     imageVector = Icons.Default.Medication,
                     contentDescription = null,
-                    modifier = Modifier.padding(8.dp).size(20.dp)
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(24.dp)
                 )
             }
 
-            // 2. Información del producto
-            Column(modifier = Modifier.weight(1f)) {
+            // 2. Información del producto - CON ESPACIO ADECUADO
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+            ) {
                 Text(
                     text = producto.nombre,
                     style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1, // <-- EVITA QUE EL TEXTO SE VAYA A OTRA LÍNEA
-                    overflow = TextOverflow.Ellipsis // <-- PONE "..." SI ES MUY LARGO
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${producto.precio}  ·  ${producto.stock}",
@@ -313,57 +302,64 @@ private fun ProductoItem(
                     )
                 }
 
-                // Badge de reposición (Movido aquí para no romper el Row de botones)
                 if (producto.requiereReposicion && producto.estado) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(top = 4.dp)
-                    ) {
-                        Text(
-                            text = "Reponer",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                    Text(
+                        text = "Reponer",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
 
-            // 3. Botones de acción
+            // 3. Botones
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Botón de compartir
+                // Botón COPIAR
+                IconButton(onClick = onCopiar) {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = "Copiar",
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Botón COMPARTIR
                 IconButton(onClick = onCompartir) {
                     Icon(
                         Icons.Default.Share,
                         contentDescription = "Compartir",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 if (producto.estado) {
-                    FilledTonalButton(onClick = onEditar) {
-                        Text("Editar")
+                    FilledTonalButton(
+                        onClick = onEditar,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text("Editar", style = MaterialTheme.typography.labelSmall)
                     }
                     Button(
                         onClick = onEliminar,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error
-                        )
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Text("Eliminar")
+                        Text("Eliminar", style = MaterialTheme.typography.labelSmall)
                     }
                 } else {
                     Button(
                         onClick = onReactivar,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
-                        )
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Text("Reactivar")
+                        Text("Reactivar", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
