@@ -1,0 +1,40 @@
+package pe.edu.upeu.pharmamobil.data.local
+
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme
+import androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme
+
+class AlmacenSeguroAndroid(
+    private val contexto: Context
+) : AlmacenSeguro {
+
+    private val llave = MasterKey.Builder(contexto)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+
+    private val prefs = EncryptedSharedPreferences.create(
+        contexto,
+        "sesion_segura",
+        llave,
+        PrefKeyEncryptionScheme.AES256_SIV,
+        PrefValueEncryptionScheme.AES256_GCM
+    )
+
+    override fun guardarToken(token: String) {
+        prefs.edit().putString(CLAVE, token).apply()
+    }
+
+    override fun leerToken(): String? {
+        return prefs.getString(CLAVE, null)
+    }
+
+    override fun borrarToken() {
+        prefs.edit().remove(CLAVE).apply()
+    }
+
+    private companion object {
+        const val CLAVE = "jwt"
+    }
+}

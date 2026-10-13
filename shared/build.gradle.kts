@@ -49,6 +49,7 @@ kotlin {/*
             implementation(libs.koin.core)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.koin.android)
+            implementation("androidx.security:security-crypto:1.1.0-alpha06")
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -68,6 +69,13 @@ kotlin {/*
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
+            implementation("io.ktor:ktor-client-auth:3.0.0")
+            implementation("io.ktor:ktor-client-logging:3.0.0")
+            implementation("io.ktor:ktor-client-content-negotiation:3.0.0")
+            implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.0")
+            implementation("io.ktor:ktor-client-okhttp:3.0.0")
+            implementation("io.ktor:ktor-client-android:3.0.0")
+            implementation("androidx.security:security-crypto:1.1.0-alpha06")
         }
         /*
         iosMain.dependencies {
