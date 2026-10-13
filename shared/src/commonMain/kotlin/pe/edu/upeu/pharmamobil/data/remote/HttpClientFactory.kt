@@ -35,7 +35,6 @@ fun crearHttpClient(
         })
     }
 
-    // 1. PLUGIN DE AUTENTICACIÓN (JWT)
     install(Auth) {
         bearer {
             loadTokens {
@@ -51,7 +50,6 @@ fun crearHttpClient(
         }
     }
 
-    // 2. LOGGING SANEADO (Oculta el token en Logcat)
     install(Logging) {
         level = if (esDepuracion) LogLevel.HEADERS else LogLevel.NONE
         sanitizeHeader { header ->

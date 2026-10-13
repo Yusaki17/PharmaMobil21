@@ -47,7 +47,8 @@ import pe.edu.upeu.pharmamobil.presentation.components.ValidatedTextField
 @Composable
 fun ProductoScreen(
     viewModel: ProductoViewModel,
-    compartidor: Compartidor, // <-- Inyectado desde App.kt
+    compartidor: Compartidor,
+    puedeRegistrar: Boolean = true,// <-- Inyectado desde App.kt
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -58,15 +59,16 @@ fun ProductoScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        FormularioProductoCard(
-            formulario = uiState.formulario,
-            registrando = uiState.operacion is ProductoUiState.Operacion.EnCurso,
-            onNombreChange = viewModel::onNombreChange,
-            onPrecioChange = viewModel::onPrecioChange,
-            onStockChange = viewModel::onStockChange,
-            onRegistrar = viewModel::registrar
-        )
-
+        if (puedeRegistrar) {
+            FormularioProductoCard(
+                formulario = uiState.formulario,
+                registrando = uiState.operacion is ProductoUiState.Operacion.EnCurso,
+                onNombreChange = viewModel::onNombreChange,
+                onPrecioChange = viewModel::onPrecioChange,
+                onStockChange = viewModel::onStockChange,
+                onRegistrar = viewModel::registrar
+            )
+        }
         uiState.mensajeExito?.let {
             MensajeExito(it)
         }
