@@ -3,29 +3,26 @@ package pe.edu.upeu.pharmamobil.data.repository
 import pe.edu.upeu.pharmamobil.domain.model.Cliente
 import pe.edu.upeu.pharmamobil.domain.repository.ClienteRepository
 
-/** Doble de la cartera de clientes, gemelo de [FakeProductoRepository]. */
+/** Repositorio de pruebas: no usa red ni almacenamiento del dispositivo. */
 class FakeClienteRepository(
-    private val clientes: MutableList<Cliente> = mutableListOf()
+    clientes: MutableList<Cliente> = mutableListOf()
 ) : ClienteRepository {
+
+    private val datos = clientes.toMutableList()
+    private var siguienteId = (datos.maxOfOrNull { it.id } ?: 0L) + 1L
 
     var fallaAlRegistrar: Throwable? = null
     var fallaAlListar: Throwable? = null
 
-    private var siguienteId = 1L
-
     override suspend fun registrar(cliente: Cliente): Cliente {
-
         fallaAlRegistrar?.let { throw it }
-
         val guardado = cliente.copy(id = siguienteId++)
-        clientes.add(guardado)
+        datos.add(guardado)
         return guardado
     }
 
     override suspend fun listar(): List<Cliente> {
-
         fallaAlListar?.let { throw it }
-
-        return clientes.toList()
+        return datos.toList()
     }
 }
