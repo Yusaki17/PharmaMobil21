@@ -1,0 +1,26 @@
+ androidApp/build.gradle.kts                        |   1 [31m-[m
+ gradle/libs.versions.toml                          |   8 [32m+[m[31m-[m
+ settings.gradle.kts                                |   2 [31m-[m
+ shared/build.gradle.kts                            |  32 [32m++[m[31m-[m
+ .../repository/ProductoRepositorioOfflineTest.kt   |  73 [32m+++++[m
+ .../data/local/CreadorDeDriverAndroid.kt           |  14 [32m+[m
+ .../upeu/pharmamobil/di/PlatformModule.android.kt  |  13 [32m+[m[31m-[m
+ .../upeu/pharmamobil/data/local/CreadorDeDriver.kt |   5 [32m+[m
+ .../upeu/pharmamobil/data/local/ProductoLocal.kt   |  71 [32m+++++[m
+ .../pharmamobil/data/remote/HttpClientFactory.kt   |   3 [32m+[m[31m-[m
+ .../data/repository/ProductoRepositorioOffline.kt  |  77 [32m++++++[m
+ .../kotlin/pe/edu/upeu/pharmamobil/di/AppModule.kt |  25 [32m+[m[31m-[m
+ .../edu/upeu/pharmamobil/domain/model/Producto.kt  |   3 [32m+[m[31m-[m
+ .../domain/repository/ProductoRepository.kt        |   5 [32m+[m[31m-[m
+ .../domain/usecase/ListarProductosUseCase.kt       |   7 [32m+[m[31m-[m
+ .../presentation/producto/ProductoScreen.kt        | 298 [32m++++++++++++[m[31m---------[m
+ .../presentation/producto/ProductoUi.kt            |  10 [32m+[m[31m-[m
+ .../presentation/producto/ProductoUiState.kt       |  61 [32m+++[m[31m--[m
+ .../presentation/producto/ProductoViewModel.kt     | 290 [32m+++++++[m[31m-------------[m
+ .../pe/edu/upeu/pharmamobil/db/Producto.sq         |  28 [32m++[m
+ .../data/repository/FakeProductoRepository.kt      |  35 [32m+[m[31m--[m
+ .../repository/ProductoRepositorioEnMemoriaTest.kt |  41 [31m---[m
+ .../pe/edu/upeu/pharmamobil/di/AppModuleTest.kt    |  20 [32m+[m[31m-[m
+ .../domain/usecase/ListarProductosUseCaseTest.kt   |  39 [32m+[m[31m--[m
+ .../presentation/producto/ProductoViewModelTest.kt |  45 [32m+++[m[31m-[m
+ 25 files changed, 703 insertions(+), 503 deletions(-)
