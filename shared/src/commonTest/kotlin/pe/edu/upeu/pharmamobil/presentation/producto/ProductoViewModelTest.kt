@@ -48,6 +48,23 @@ class ProductoViewModelTest {
     )
 
     @Test
+    fun distinguePendientesDeFallidasYConservaElMotivo() = runTest {
+        val repositorio = FakeProductoRepository(mutableListOf(
+            Producto(id = -1, nombre = "Pendiente", precio = 10.0, pendiente = true),
+            Producto(id = -2, nombre = "Fallida", precio = 12.0, pendiente = true,
+                fallida = true, ultimoError = "Conflicto con el servidor"),
+            Producto(id = 3, nombre = "Sincronizado", precio = 15.0)
+        ))
+        val estado = nuevoViewModel(repositorio).uiState.value
+        assertEquals(1L, estado.pendientes)
+        assertEquals(1L, estado.fallidas)
+        val lista = assertIs<ProductoUiState.Fase.ConProductos>(estado.fase)
+        val fallida = lista.productos.first { it.id == -2L }
+        assertTrue(fallida.fallida)
+        assertEquals("Conflicto con el servidor", fallida.ultimoError)
+    }
+
+    @Test
     fun arrancaEnSinProductosCuandoElInventarioEstaVacio() = runTest {
 
         val viewModel = nuevoViewModel()
@@ -100,7 +117,7 @@ class ProductoViewModelTest {
         assertEquals("El nombre es obligatorio", estado.formulario.nombreError)
         assertEquals("El precio debe ser un número válido", estado.formulario.precioError)
         assertEquals("El stock no puede ser negativo", estado.formulario.stockError)
-        assertIs<ProductoUiState.Fase.Error>(estado.fase)
+        assertEquals(ProductoUiState.Fase.SinProductos, estado.fase)
         assertNull(estado.mensajeExito)
     }
 

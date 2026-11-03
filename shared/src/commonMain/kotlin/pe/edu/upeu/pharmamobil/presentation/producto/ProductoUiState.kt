@@ -7,7 +7,9 @@
         val mensajeExito: String? = null,
         val editando: Boolean = false,
         val sincronizando: Boolean = false,   // ← NUEVO
-        val avisoRed: String? = null
+        val avisoRed: String? = null,
+        val pendientes: Long = 0,
+        val fallidas: Long = 0
     ) {
         sealed interface Fase {
             data object Cargando : Fase

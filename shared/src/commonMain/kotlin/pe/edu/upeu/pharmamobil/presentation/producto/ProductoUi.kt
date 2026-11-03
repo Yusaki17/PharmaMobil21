@@ -12,6 +12,8 @@ data class ProductoUi(
     val estado: Boolean,
     val categoria: String = "",
     val descripcion: String = "",
+    val fallida: Boolean = false,
+    val ultimoError: String? = null,
     val pendiente: Boolean = false   // ← NUEVO: para el badge "Pendiente de sincronizar"
 )
 
@@ -24,6 +26,8 @@ fun Producto.aUi(): ProductoUi = ProductoUi(
     estado = estado,
     categoria = categoria,
     descripcion = descripcion,
+    fallida = fallida,
+    ultimoError = ultimoError,
     pendiente = pendiente            // ← NUEVO: se copia desde el dominio
 )
 

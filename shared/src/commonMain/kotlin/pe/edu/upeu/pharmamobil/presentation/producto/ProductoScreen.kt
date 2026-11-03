@@ -123,35 +123,17 @@ fun ProductoScreen(
             MensajeExito(it)
         }
 
-        // 4. Banner de aviso de red (aparece si hay fallo o pendientes)
-        val hayPendientes = (uiState.fase as? ProductoUiState.Fase.ConProductos)
-            ?.productos?.any { it.pendiente } == true
-
-        if (uiState.avisoRed != null || hayPendientes) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        uiState.avisoRed?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (hayPendientes) {
-                            Text(
-                                "Hay productos pendientes de sincronizar",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
+        if (uiState.avisoRed != null || uiState.pendientes > 0 || uiState.fallidas > 0) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    uiState.avisoRed?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    Text("${uiState.pendientes} pendientes de envío")
+                    if (uiState.fallidas > 0) {
+                        Text("${uiState.fallidas} requieren revisión", color = MaterialTheme.colorScheme.error)
+                        Text("Abre Ver detalle para conocer el motivo. Comprueba el servidor antes de reenviar.", style = MaterialTheme.typography.bodySmall)
                     }
-                    Button(onClick = viewModel::sincronizar) {
-                        Text("Sincronizar")
+                    TextButton(onClick = viewModel::sincronizar, enabled = !uiState.sincronizando) {
+                        Text(if (uiState.sincronizando) "Sincronizando…" else "Sincronizar pendientes")
                     }
                 }
             }
@@ -360,6 +342,10 @@ private fun ProductoItem(
                     Text("Stock: ${producto.stock}")
                     Text(producto.descripcion.ifBlank { "Sin descripción" })
                     Text(if (producto.estado) "Activo" else "Inactivo")
+                    if (producto.fallida) {
+                        Text("No se pudo confirmar el envío", color = MaterialTheme.colorScheme.error)
+                        Text(producto.ultimoError ?: "Revisa el producto antes de volver a enviarlo.")
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { detalle = false }) { Text("Cerrar") } }
@@ -390,7 +376,11 @@ private fun ProductoItem(
             if (producto.descripcion.isNotBlank()) {
                 Text(producto.descripcion, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
-            if (producto.pendiente) Text("Pendiente de sincronizar", color = MaterialTheme.colorScheme.tertiary)
+            if (producto.fallida) {
+                Text("Requiere revisión", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            } else if (producto.pendiente) {
+                Text("Pendiente de sincronizar", color = MaterialTheme.colorScheme.tertiary)
+            }
             if (!producto.estado) Text("Inactivo", color = MaterialTheme.colorScheme.error)
             if (producto.requiereReposicion && producto.estado) Text("Stock bajo · Reponer", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

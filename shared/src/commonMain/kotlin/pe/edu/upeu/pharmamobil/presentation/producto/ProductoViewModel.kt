@@ -42,7 +42,13 @@ class ProductoViewModel(
                     _uiState.value.sincronizando -> ProductoUiState.Fase.Cargando
                     else -> ProductoUiState.Fase.SinProductos
                 }
-                _uiState.update { it.copy(fase = fase) }
+                _uiState.update {
+                    it.copy(
+                        fase = fase,
+                        pendientes = productos.count { producto -> producto.pendiente && !producto.fallida }.toLong(),
+                        fallidas = productos.count { producto -> producto.pendiente && producto.fallida }.toLong()
+                    )
+                }
             }
         }
         sincronizar()
