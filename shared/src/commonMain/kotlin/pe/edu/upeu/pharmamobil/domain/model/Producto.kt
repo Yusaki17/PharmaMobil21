@@ -8,7 +8,10 @@ data class Producto(
     val categoria: String = "Sin categoría", // ← Agregado: la API lo envía como objeto anidado
     val stock: Int = 0,
     val estado: Boolean = true, // ← Valor por defecto: la API de práctica no envía stock
-    val pendiente: Boolean = false
+    val pendiente: Boolean = false,
+    val intentos: Long = 0,
+    val ultimoError: String? = null,
+    val fallida: Boolean = false
 ) {
     init {
         require(nombre.isNotBlank()) {

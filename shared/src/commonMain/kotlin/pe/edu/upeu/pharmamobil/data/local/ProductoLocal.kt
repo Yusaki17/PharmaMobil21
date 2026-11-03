@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import pe.edu.upeu.pharmamobil.db.PharmaDb
 import pe.edu.upeu.pharmamobil.domain.model.Producto
+import app.cash.sqldelight.coroutines.mapToOne
 
 class ProductoLocal(base: PharmaDb) {
 
@@ -20,10 +21,48 @@ class ProductoLocal(base: PharmaDb) {
 
     fun pendientes(): List<Producto> =
         consultas.listarPendientes().executeAsList().map { it.aDominio() }
+    fun pendientesPorEnviar(maxIntentos: Long = 5): List<Producto> =
+        consultas.pendientesPorEnviar(maxIntentos)
+            .executeAsList()
+            .map { it.aDominio() }
 
+    fun observarPendientes(): Flow<Long> =
+        consultas.contarPendientes()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
+
+    fun observarFallidas(): Flow<Long> =
+        consultas.contarFallidas()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
+
+    fun sumarIntento(
+        id: Long,
+        mensaje: String,
+        maxIntentos: Long = 5
+    ) {
+        consultas.sumarIntento(
+            mensaje = mensaje,
+            maxIntentos = maxIntentos,
+            id = id
+        )
+    }
+
+    fun marcarFallida(id: Long, mensaje: String) {
+        consultas.marcarFallida(
+            mensaje = mensaje,
+            id = id
+        )
+    }
     fun guardarPendiente(producto: Producto): Producto {
         val menor = consultas.siguienteIdLocal().executeAsOne()
-        val local = producto.copy(id = minOf(menor, 0L) - 1L)
+        val local = producto.copy(
+            id = minOf(menor, 0L) - 1L,
+            pendiente = true,
+            intentos = 0,
+            ultimoError = null,
+            fallida = false
+        )
         consultas.insertar(
             id = local.id,
             nombre = local.nombre,
@@ -69,5 +108,8 @@ private fun pe.edu.upeu.pharmamobil.db.Producto.aDominio(): Producto =
         descripcion = descripcion,
         categoria = categoria,
         estado = estado == 1L,
-        pendiente = pendiente == 1L
+        pendiente = pendiente == 1L,
+        intentos = intentos,
+        ultimoError = ultimoError,
+        fallida = fallida == 1L
     )
