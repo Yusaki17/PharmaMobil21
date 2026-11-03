@@ -43,7 +43,6 @@ fun crearHttpClient(
                     BearerTokens(accessToken = it, refreshToken = "")
                 }
             }
-            // EVITA enviar el token en la petición de login (y evita el ciclo 401 -> reintento)
             sendWithoutRequest { request ->
                 !request.url.encodedPath.endsWith("/auth/login")
             }
@@ -53,7 +52,7 @@ fun crearHttpClient(
     install(Logging) {
         level = if (esDepuracion) LogLevel.HEADERS else LogLevel.NONE
         sanitizeHeader { header ->
-            header == HttpHeaders.Authorization // Reemplaza el token con "***" en los logs
+            header == HttpHeaders.Authorization
         }
     }
 

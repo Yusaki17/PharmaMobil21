@@ -1,35 +1,24 @@
 package pe.edu.upeu.pharmamobil.data.repository
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import pe.edu.upeu.pharmamobil.domain.model.Producto
 import pe.edu.upeu.pharmamobil.domain.repository.ProductoRepository
 
-/**
- * Doble del inventario para las pruebas: sin delay y capaz de fallar a
- * voluntad. Sin el, probar el camino de error del caso de uso o del ViewModel
- * era imposible, porque el repositorio en memoria nunca falla.
- */
-class FakeProductoRepository(
-    private val productos: MutableList<Producto> = mutableListOf()
-) : ProductoRepository {
-
+class FakeProductoRepository(productos: MutableList<Producto> = mutableListOf()) : ProductoRepository {
+    private val estado = MutableStateFlow(productos.toList())
     var fallaAlRegistrar: Throwable? = null
     var fallaAlListar: Throwable? = null
-
-    private var siguienteId = 1L
-
+    private var siguienteId = (productos.maxOfOrNull { it.id } ?: 0L) + 1
+    override fun observar(): Flow<List<Producto>> = estado
     override suspend fun registrar(producto: Producto): Producto {
-
         fallaAlRegistrar?.let { throw it }
-
-        val guardado = producto.copy(id = siguienteId++)
-        productos.add(guardado)
-        return guardado
+        return producto.copy(id = siguienteId++).also { estado.value = estado.value + it }
     }
-
-    override suspend fun listar(): List<Producto> {
-
-        fallaAlListar?.let { throw it }
-
-        return productos.toList()
+    override suspend fun actualizar(producto: Producto): Producto {
+        estado.value = estado.value.map { if (it.id == producto.id) producto else it }
+        return producto
     }
+    override suspend fun eliminar(id: Long) { estado.value = estado.value.filterNot { it.id == id } }
+    override suspend fun sincronizar() { fallaAlListar?.let { throw it } }
 }

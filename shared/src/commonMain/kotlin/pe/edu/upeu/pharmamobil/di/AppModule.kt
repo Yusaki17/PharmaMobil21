@@ -5,11 +5,14 @@ import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
 import pe.edu.upeu.pharmamobil.data.local.AlmacenSeguro
+import pe.edu.upeu.pharmamobil.data.local.CreadorDeDriver
+import pe.edu.upeu.pharmamobil.data.local.ProductoLocal
 import pe.edu.upeu.pharmamobil.data.remote.ProductoApi
 import pe.edu.upeu.pharmamobil.data.remote.crearHttpClient
 import pe.edu.upeu.pharmamobil.data.repository.AuthRepositorioRest
 import pe.edu.upeu.pharmamobil.data.repository.ClienteRepositorioEnMemoria
-import pe.edu.upeu.pharmamobil.data.repository.ProductoRepositoryImpl
+import pe.edu.upeu.pharmamobil.data.repository.ProductoRepositorioOffline
+import pe.edu.upeu.pharmamobil.db.PharmaDb
 import pe.edu.upeu.pharmamobil.domain.repository.AuthRepository
 import pe.edu.upeu.pharmamobil.domain.repository.ClienteRepository
 import pe.edu.upeu.pharmamobil.domain.repository.ProductoRepository
@@ -21,19 +24,22 @@ import pe.edu.upeu.pharmamobil.presentation.sesion.LoginViewModel
 
 // 1. Módulo de Red
 val networkModule = module {
-    // Ahora crearHttpClient recibe el motor (de platformModule) y el AlmacenSeguro
     single { crearHttpClient(get(), get()) }
     single { ProductoApi(get()) }
-    single<ProductoRepository> {
-        ProductoRepositoryImpl(get(), categoriaPorDefecto = 1L)
+    single<ProductoRepository> { ProductoRepositorioOffline(get(), get()) }
+    single(createdAtStart = true) {
+        PharmaDb(get<CreadorDeDriver>().crear()).apply {
+            productoQueries.listarTodos().executeAsList()
+        }
     }
+    single { ProductoLocal(get()) }
 }
 
 // 2. Módulo de Datos
 val dataModule = module {
     single<ClienteRepository> { ClienteRepositorioEnMemoria() }
 
-    // NUEVO: Autenticación
+    // Autenticación
     single<AuthRepository> { AuthRepositorioRest(get(), get()) }
 }
 
@@ -49,7 +55,7 @@ val domainModule = module {
     factory { RegistrarClienteUseCase(get()) }
     factory { ListarClientesUseCase(get()) }
 
-    // NUEVO: Autenticación
+    // Autenticación
     factory { IniciarSesionUseCase(get()) }
     factory { CerrarSesionUseCase(get()) }
 }
@@ -61,7 +67,8 @@ val presentationModule = module {
             get(), // RegistrarProductoUseCase
             get(), // ListarProductosUseCase
             get(), // ActualizarProductoUseCase
-            get()  // EliminarProductoUseCase
+            get(), // EliminarProductoUseCase
+            get()  // ✅ NUEVO: ProductoRepository (para sincronizar)
         )
     }
 
@@ -73,7 +80,7 @@ val presentationModule = module {
         DetalleProductoViewModel(get())
     }
 
-    // NUEVO: ViewModel de Login
+    // ViewModel de Login
     viewModel { LoginViewModel(get()) }
 }
 
@@ -85,7 +92,7 @@ fun initKoin(configuracionAdicional: KoinApplication.() -> Unit = {}) {
             dataModule,
             domainModule,
             presentationModule,
-            platformModule // <-- Ya debe contener AlmacenSeguro y HttpClientEngine
+            platformModule // Contiene AlmacenSeguro, HttpClientEngine y CreadorDeDriver
         )
     }
 }

@@ -6,8 +6,15 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqldelight)
 }
-
+sqldelight {
+    databases {
+        create("PharmaDb") {
+            packageName.set("pe.edu.upeu.pharmamobil.db")
+        }
+    }
+}
 kotlin {/*
     listOf(
         iosArm64(),
@@ -49,9 +56,12 @@ kotlin {/*
             implementation(libs.koin.core)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.koin.android)
+            implementation(libs.sqldelight.android)
             implementation("androidx.security:security-crypto:1.1.0-alpha06")
         }
         commonMain.dependencies {
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
@@ -69,24 +79,28 @@ kotlin {/*
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
-            implementation("io.ktor:ktor-client-auth:3.0.0")
-            implementation("io.ktor:ktor-client-logging:3.0.0")
-            implementation("io.ktor:ktor-client-content-negotiation:3.0.0")
-            implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.0")
-            implementation("io.ktor:ktor-client-okhttp:3.0.0")
-            implementation("io.ktor:ktor-client-android:3.0.0")
-            implementation("androidx.security:security-crypto:1.1.0-alpha06")
+            implementation("io.ktor:ktor-client-auth:${libs.versions.ktor.get()}")
         }
         /*
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }*/
+        getByName("androidHostTest").dependencies {
+            implementation(libs.sqldelight.jvm)
+            implementation(libs.kotlin.testJunit)
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+            implementation("io.ktor:ktor-client-mock:${libs.versions.ktor.get()}")
         }
     }
 }
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+}
+// Mantiene el mismo OkHttp compatible con SDK 36 en la app y las pruebas.
+configurations.configureEach {
+    resolutionStrategy.force("com.squareup.okhttp3:okhttp:4.12.0")
 }

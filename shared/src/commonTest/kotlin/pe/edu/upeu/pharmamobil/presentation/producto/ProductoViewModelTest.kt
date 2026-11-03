@@ -8,6 +8,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import pe.edu.upeu.pharmamobil.data.repository.FakeProductoRepository
 import pe.edu.upeu.pharmamobil.domain.model.Producto
+import pe.edu.upeu.pharmamobil.domain.usecase.ActualizarProductoUseCase
+import pe.edu.upeu.pharmamobil.domain.usecase.EliminarProductoUseCase
 import pe.edu.upeu.pharmamobil.domain.usecase.ListarProductosUseCase
 import pe.edu.upeu.pharmamobil.domain.usecase.RegistrarProductoUseCase
 import kotlin.test.AfterTest
@@ -39,7 +41,10 @@ class ProductoViewModelTest {
         repositorio: FakeProductoRepository = FakeProductoRepository()
     ) = ProductoViewModel(
         registrarProducto = RegistrarProductoUseCase(repositorio),
-        listarProductos = ListarProductosUseCase(repositorio)
+        listarProductos = ListarProductosUseCase(repositorio),
+        actualizarProducto = ActualizarProductoUseCase(repositorio),
+        eliminarProducto = EliminarProductoUseCase(repositorio),
+        repositorio = repositorio
     )
 
     @Test
@@ -75,11 +80,9 @@ class ProductoViewModelTest {
             fallaAlListar = IllegalStateException("Sin conexión")
         }
 
-        val fase = assertIs<ProductoUiState.Fase.Error>(
-            nuevoViewModel(repositorio).uiState.value.fase
-        )
-
-        assertEquals("Sin conexión", fase.mensaje)
+        val estado = nuevoViewModel(repositorio).uiState.value
+        assertIs<ProductoUiState.Fase.Error>(estado.fase)
+        assertEquals("No se pudo sincronizar. Los datos guardados se conservan.", estado.avisoRed)
     }
 
     @Test
@@ -97,7 +100,7 @@ class ProductoViewModelTest {
         assertEquals("El nombre es obligatorio", estado.formulario.nombreError)
         assertEquals("El precio debe ser un número válido", estado.formulario.precioError)
         assertEquals("El stock no puede ser negativo", estado.formulario.stockError)
-        assertEquals(ProductoUiState.Fase.SinProductos, estado.fase)
+        assertIs<ProductoUiState.Fase.Error>(estado.fase)
         assertNull(estado.mensajeExito)
     }
 
@@ -119,8 +122,34 @@ class ProductoViewModelTest {
         assertEquals("", estado.formulario.precio)
         assertEquals("", estado.formulario.stock)
         assertEquals(
-            "Producto \"Paracetamol\" registrado correctamente",
+            "Producto registrado correctamente",
             estado.mensajeExito
         )
     }
+    @Test
+    fun editarPermiteGuardarLosCambios() = runTest {
+        val vm = nuevoViewModel(FakeProductoRepository(mutableListOf(
+            Producto(id = 1, nombre = "Paracetamol", precio = 12.5, stock = 5)
+        )))
+        val producto = assertIs<ProductoUiState.Fase.ConProductos>(vm.uiState.value.fase).productos.single()
+        vm.prepararEdicion(producto)
+        assertEquals(ProductoUiState.Operacion.Inactiva, vm.uiState.value.operacion)
+        assertTrue(vm.uiState.value.editando)
+        vm.onNombreChange("Paracetamol actualizado")
+        vm.registrar()
+        assertEquals("Paracetamol actualizado", assertIs<ProductoUiState.Fase.ConProductos>(vm.uiState.value.fase).productos.single().nombre)
+        assertEquals(false, vm.uiState.value.editando)
+    }
+    @Test
+    fun cancelarEdicionLimpiaElFormulario() = runTest {
+        val vm = nuevoViewModel(FakeProductoRepository(mutableListOf(
+            Producto(id = 1, nombre = "Paracetamol", precio = 12.5, stock = 5)
+        )))
+        vm.prepararEdicion(assertIs<ProductoUiState.Fase.ConProductos>(vm.uiState.value.fase).productos.single())
+        vm.cancelarEdicion()
+        assertEquals(false, vm.uiState.value.editando)
+        assertEquals("", vm.uiState.value.formulario.nombre)
+    }
 }
+
+

@@ -5,6 +5,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import org.koin.dsl.module
+import pe.edu.upeu.pharmamobil.data.repository.FakeProductoRepository
 import org.koin.core.Koin
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
@@ -23,15 +25,8 @@ import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 
-/**
- * Comprueba que el grafo se ensambla sin arrancar la aplicacion: si una
- * definicion falta o esta declarada con el tipo equivocado, falla aqui.
- *
- * Se cargan los cuatro modulos, incluido presentationModule: construir un
- * ViewModel es justo lo que se rompe al cambiar un constructor, y antes era
- * lo unico que el grafo no cubria. Como los ViewModel arrancan una carga en
- * su init, hace falta un Dispatchers.Main de prueba.
- */
+/** Comprueba el grafo de dominio y presentación con repositorios de prueba,
+ * sin depender del contexto Android ni del servidor. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppModuleTest {
 
@@ -47,7 +42,10 @@ class AppModuleTest {
     }
 
     private fun grafoCompleto(): Koin = startKoin {
-        modules(dataModule, domainModule, presentationModule, platformModule)
+        modules(domainModule, presentationModule, module {
+            single<ProductoRepository> { FakeProductoRepository() }
+            single<ClienteRepository> { ClienteRepositorioEnMemoria() }
+        })
     }.koin
 
     @Test
@@ -55,7 +53,7 @@ class AppModuleTest {
 
         val koin = grafoCompleto()
 
-        assertIs<ProductoRepositorioEnMemoria>(koin.get<ProductoRepository>())
+        assertIs<FakeProductoRepository>(koin.get<ProductoRepository>())
         assertIs<ClienteRepositorioEnMemoria>(koin.get<ClienteRepository>())
     }
 

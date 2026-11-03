@@ -9,7 +9,10 @@ data class ProductoUi(
     val precio: String,
     val stock: String,
     val requiereReposicion: Boolean,
-    val estado: Boolean  // ← AGREGAR
+    val estado: Boolean,
+    val categoria: String = "",
+    val descripcion: String = "",
+    val pendiente: Boolean = false   // ← NUEVO: para el badge "Pendiente de sincronizar"
 )
 
 fun Producto.aUi(): ProductoUi = ProductoUi(
@@ -18,7 +21,10 @@ fun Producto.aUi(): ProductoUi = ProductoUi(
     precio = precio.enSoles(),
     stock = "$stock u.",
     requiereReposicion = stock < 10,
-    estado = estado  // ← AGREGAR
+    estado = estado,
+    categoria = categoria,
+    descripcion = descripcion,
+    pendiente = pendiente            // ← NUEVO: se copia desde el dominio
 )
 
 private fun Double.enSoles(): String {

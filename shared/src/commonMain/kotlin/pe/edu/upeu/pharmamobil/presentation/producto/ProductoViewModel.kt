@@ -10,81 +10,81 @@ import kotlinx.coroutines.launch
 import pe.edu.upeu.pharmamobil.domain.error.ErrorApi
 import pe.edu.upeu.pharmamobil.domain.error.ErrorApiException
 import pe.edu.upeu.pharmamobil.domain.model.Producto
+import pe.edu.upeu.pharmamobil.domain.repository.ProductoRepository
 import pe.edu.upeu.pharmamobil.domain.usecase.ActualizarProductoUseCase
 import pe.edu.upeu.pharmamobil.domain.usecase.EliminarProductoUseCase
 import pe.edu.upeu.pharmamobil.domain.usecase.ListarProductosUseCase
 import pe.edu.upeu.pharmamobil.domain.usecase.ProductoInvalidoException
 import pe.edu.upeu.pharmamobil.domain.usecase.RegistrarProductoUseCase
+import pe.edu.upeu.pharmamobil.domain.usecase.resultadoDe
 
 class ProductoViewModel(
     private val registrarProducto: RegistrarProductoUseCase,
     private val listarProductos: ListarProductosUseCase,
     private val actualizarProducto: ActualizarProductoUseCase,
-    private val eliminarProducto: EliminarProductoUseCase
+    private val eliminarProducto: EliminarProductoUseCase,
+    private val repositorio: ProductoRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductoUiState())
     val uiState: StateFlow<ProductoUiState> = _uiState.asStateFlow()
 
-    // Lista completa de productos del dominio (para poder editar)
     private var productosCompletos: List<Producto> = emptyList()
     private var productoEnEdicion: Producto? = null
 
     init {
-        cargarProductos()
+        viewModelScope.launch {
+            listarProductos().collect { productos ->
+                productosCompletos = productos
+                val fase = when {
+                    productos.isNotEmpty() ->
+                        ProductoUiState.Fase.ConProductos(productos.map { it.aUi() })
+                    _uiState.value.sincronizando -> ProductoUiState.Fase.Cargando
+                    else -> ProductoUiState.Fase.SinProductos
+                }
+                _uiState.update { it.copy(fase = fase) }
+            }
+        }
+        sincronizar()
     }
 
-    fun cargarProductos() {
+    fun sincronizar() {
+        if (_uiState.value.sincronizando) return
+        _uiState.update { it.copy(sincronizando = true, avisoRed = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(fase = ProductoUiState.Fase.Cargando) }
-
-            listarProductos().fold(
-                onSuccess = { productos ->
-                    productosCompletos = productos
-                    val fase = if (productos.isEmpty()) {
-                        ProductoUiState.Fase.SinProductos
-                    } else {
-                        ProductoUiState.Fase.ConProductos(productos.map { it.aUi() })
+            val resultado = resultadoDe { repositorio.sincronizar() }
+            _uiState.update {
+                it.copy(
+                    sincronizando = false,
+                    fase = when {
+                        productosCompletos.isNotEmpty() -> ProductoUiState.Fase.ConProductos(productosCompletos.map { producto -> producto.aUi() })
+                        resultado.isFailure -> ProductoUiState.Fase.Error("No se pudo actualizar el inventario. Intenta nuevamente.")
+                        else -> ProductoUiState.Fase.SinProductos
+                    },
+                    avisoRed = resultado.exceptionOrNull()?.let {
+                        "No se pudo sincronizar. Los datos guardados se conservan."
                     }
-                    _uiState.update { it.copy(fase = fase) }
-                },
-                onFailure = { fallo ->
-                    _uiState.update {
-                        it.copy(fase = ProductoUiState.Fase.Error(
-                            fallo.message ?: "No se pudo cargar el inventario"
-                        ))
-                    }
-                }
-            )
+                )
+            }
         }
     }
 
-    // === FORMULARIO ===
+    // === FORMULARIO (sin cambios) ===
     fun onNombreChange(nombre: String) {
         _uiState.update {
-            it.copy(
-                formulario = it.formulario.copy(nombre = nombre, nombreError = null),
-                mensajeExito = null
-            )
+            it.copy(formulario = it.formulario.copy(nombre = nombre, nombreError = null), mensajeExito = null)
         }
     }
 
     fun onPrecioChange(precio: String) {
         _uiState.update {
-            it.copy(
-                formulario = it.formulario.copy(precio = precio, precioError = null),
-                mensajeExito = null
-            )
+            it.copy(formulario = it.formulario.copy(precio = precio, precioError = null), mensajeExito = null)
         }
     }
 
-
     fun onStockChange(stock: String) {
         _uiState.update {
-            it.copy(
-                formulario = it.formulario.copy(stock = stock, stockError = null),
-                mensajeExito = null
-            )
+            it.copy(formulario = it.formulario.copy(stock = stock, stockError = null), mensajeExito = null)
         }
     }
 
@@ -95,12 +95,9 @@ class ProductoViewModel(
         viewModelScope.launch {
             val tipo = if (productoEnEdicion == null)
                 ProductoUiState.Operacion.Tipo.Crear
-            else
-                ProductoUiState.Operacion.Tipo.Actualizar
+            else ProductoUiState.Operacion.Tipo.Actualizar
 
-            _uiState.update {
-                it.copy(operacion = ProductoUiState.Operacion.EnCurso(tipo))
-            }
+            _uiState.update { it.copy(operacion = ProductoUiState.Operacion.EnCurso(tipo)) }
 
             val formulario = _uiState.value.formulario
 
@@ -125,44 +122,33 @@ class ProductoViewModel(
             }
 
             resultado.fold(
-                onSuccess = { producto ->
+                onSuccess = {
                     _uiState.update {
                         it.copy(
                             operacion = ProductoUiState.Operacion.Inactiva,
                             formulario = FormularioProducto(),
+                            editando = false,
                             mensajeExito = if (productoEnEdicion == null)
                                 "Producto registrado correctamente"
-                            else
-                                "Producto actualizado correctamente"
+                            else "Producto actualizado correctamente"
                         )
                     }
                     productoEnEdicion = null
-                    cargarProductos()
+                    // YA NO se recarga: el Flow emite solo al escribir en la tabla
                 },
                 onFailure = { fallo ->
-                    // ← AQUÍ ESTÁ LA CLAVE: Atrapar la excepción de validación del dominio
                     when (fallo) {
-                        is ProductoInvalidoException -> {
-                            println(" [DEBUG] Error de validación capturado:")
-                            println("   - Nombre: ${fallo.errores.nombre}")
-                            println("   - Precio: ${fallo.errores.precio}")
-                            println("   - Stock: ${fallo.errores.stock}")
-
-                            _uiState.update {
-                                it.copy(
-                                    operacion = ProductoUiState.Operacion.Inactiva,
-                                    formulario = it.formulario.copy(
-                                        nombreError = fallo.errores.nombre,
-                                        precioError = fallo.errores.precio,
-                                        stockError = fallo.errores.stock
-                                    )
+                        is ProductoInvalidoException -> _uiState.update {
+                            it.copy(
+                                operacion = ProductoUiState.Operacion.Inactiva,
+                                formulario = it.formulario.copy(
+                                    nombreError = fallo.errores.nombre,
+                                    precioError = fallo.errores.precio,
+                                    stockError = fallo.errores.stock
                                 )
-                            }
+                            )
                         }
-                        else -> {
-                            println(" [DEBUG] Otro tipo de error: ${fallo.message}")
-                            manejarFallo(fallo)
-                        }
+                        else -> manejarFallo(fallo)
                     }
                 }
             )
@@ -171,183 +157,91 @@ class ProductoViewModel(
 
     // === ELIMINAR ===
     fun eliminar(id: Long) {
-        println("🗑 Eliminando producto con ID: $id")
-
         viewModelScope.launch {
             _uiState.update {
                 it.copy(operacion = ProductoUiState.Operacion.EnCurso(ProductoUiState.Operacion.Tipo.Eliminar))
             }
-
-            try {
-                eliminarProducto(id).fold(
-                    onSuccess = {
-                        println(" Producto eliminado correctamente")
-                        _uiState.update {
-                            it.copy(
-                                operacion = ProductoUiState.Operacion.Inactiva,
-                                mensajeExito = "Producto eliminado correctamente"
-                            )
-                        }
-                        cargarProductos()
-                    },
-                    onFailure = { fallo ->
-                        println(" Error al eliminar: ${fallo.message}")
-                        fallo.printStackTrace()
-                        manejarFallo(fallo)
+            eliminarProducto(id).fold(
+                onSuccess = {
+                    _uiState.update {
+                        it.copy(operacion = ProductoUiState.Operacion.Inactiva, mensajeExito = "Producto eliminado correctamente")
                     }
-                )
-            } catch (e: Exception) {
-                println(" Excepción no controlada: ${e.message}")
-                e.printStackTrace()
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(
-                            e.message ?: "Error desconocido al eliminar"
-                        )
-                    )
-                }
-            }
+                    // El Flow emite solo: no se recarga a mano
+                },
+                onFailure = { fallo -> manejarFallo(fallo) }
+            )
         }
     }
 
-    // === PREPARAR EDICIÓN ===
+    // === PREPARAR EDICIÓN (sin cambios) ===
     fun prepararEdicion(productoUi: ProductoUi) {
-        // 1. Buscamos el producto en la lista local (es instantáneo, no bloquea)
         val producto = productosCompletos.find { it.id == productoUi.id }
-
-        // 2. Si no lo encuentra, usamos los datos de la UI como respaldo
-        val nombre = producto?.nombre ?: productoUi.nombre
-        val precio = producto?.precio?.toString() ?: productoUi.precio.replace("S/ ", "").trim()
-        val stock = producto?.stock?.toString() ?: productoUi.stock.replace(" u.", "").trim()
-        val descripcion = producto?.descripcion ?: ""
-        val categoria = producto?.categoria ?: "Farmacia"
-
-        // 3. Actualizamos el estado de forma limpia y directa
         productoEnEdicion = producto
         _uiState.value = _uiState.value.copy(
             formulario = FormularioProducto(
-                nombre = nombre,
-                precio = precio,
-                stock = stock,
-                descripcion = descripcion,
-                categoria = categoria,
-                nombreError = null,
-                precioError = null,
-                stockError = null
+                nombre = producto?.nombre ?: productoUi.nombre,
+                precio = producto?.precio?.toString() ?: productoUi.precio.replace("S/ ", "").trim(),
+                stock = producto?.stock?.toString() ?: productoUi.stock.replace(" u.", "").trim(),
+                descripcion = producto?.descripcion ?: "",
+                categoria = producto?.categoria ?: "Farmacia",
+                nombreError = null, precioError = null, stockError = null
             ),
-            operacion = ProductoUiState.Operacion.EnCurso(ProductoUiState.Operacion.Tipo.Actualizar),
+            operacion = ProductoUiState.Operacion.Inactiva,
+            editando = true,
             mensajeExito = null
         )
     }
+
     fun reactivar(productoUi: ProductoUi) {
         viewModelScope.launch {
             _uiState.update {
                 it.copy(operacion = ProductoUiState.Operacion.EnCurso(ProductoUiState.Operacion.Tipo.Actualizar))
             }
-
             val producto = productosCompletos.find { it.id == productoUi.id }
-
             if (producto != null) {
-                actualizarProducto(
-                    producto.copy(estado = true) // Forzamos estado = true
-                ).fold(
+                actualizarProducto(producto.copy(estado = true)).fold(
                     onSuccess = {
                         _uiState.update {
-                            it.copy(
-                                operacion = ProductoUiState.Operacion.Inactiva,
-                                mensajeExito = "Producto reactivado correctamente"
-                            )
+                            it.copy(operacion = ProductoUiState.Operacion.Inactiva, mensajeExito = "Producto reactivado correctamente")
                         }
-                        cargarProductos()
                     },
-                    onFailure = { fallo ->
-                        manejarFallo(fallo)
-                    }
+                    onFailure = { fallo -> manejarFallo(fallo) }
                 )
             }
         }
     }
+
     fun cancelarEdicion() {
         productoEnEdicion = null
         _uiState.update {
-            it.copy(
-                formulario = FormularioProducto(),
-                operacion = ProductoUiState.Operacion.Inactiva
-            )
+            it.copy(formulario = FormularioProducto(), editando = false, operacion = ProductoUiState.Operacion.Inactiva)
         }
     }
 
-    // === MANEJO DE ERRORES ===
+    // === MANEJO DE ERRORES (sin cambios, salvo NoEncontrado) ===
     private fun manejarFallo(fallo: Throwable) {
         val error = (fallo as? ErrorApiException)?.error
-
         when (error) {
-            is ErrorApi.Validacion -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Inactiva,
-                        formulario = it.formulario.copy(
-                            nombreError = error.porCampo["nombre"],
-                            precioError = error.porCampo["precio"],
-                            stockError = error.porCampo["stock"]
-                        )
+            is ErrorApi.Validacion -> _uiState.update {
+                it.copy(
+                    operacion = ProductoUiState.Operacion.Inactiva,
+                    formulario = it.formulario.copy(
+                        nombreError = error.porCampo["nombre"],
+                        precioError = error.porCampo["precio"],
+                        stockError = error.porCampo["stock"]
                     )
-                }
+                )
             }
             is ErrorApi.NoEncontrado -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida("El producto ya no existe")
-                    )
-                }
-                cargarProductos()
+                _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Fallida("El producto ya no existe")) }
+                sincronizar()
             }
-            is ErrorApi.Conflicto -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(error.mensaje)
-                    )
-                }
-            }
-            is ErrorApi.SinConexion -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida("Sin conexión a internet")
-                    )
-                }
-            }
-            is ErrorApi.TiempoAgotado -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida("Tiempo de espera agotado")
-                    )
-                }
-            }
-            is ErrorApi.Servidor -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida("Error en el servidor")
-                    )
-                }
-            }
-            null -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(
-                            fallo.message ?: "Operación fallida"
-                        )
-                    )
-                }
-            }
-            else -> {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(
-                            error.toString()
-                        )
-                    )
-                }
-            }
+            is ErrorApi.Conflicto -> _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Fallida(error.mensaje)) }
+            is ErrorApi.SinConexion -> _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Fallida("Sin conexión a internet")) }
+            is ErrorApi.TiempoAgotado -> _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Fallida("Tiempo de espera agotado")) }
+            is ErrorApi.Servidor -> _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Fallida("Error en el servidor")) }
+            null -> _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Fallida(fallo.message ?: "Operación fallida")) }
+            else -> _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Fallida(error.toString())) }
         }
     }
 
