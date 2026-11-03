@@ -36,9 +36,13 @@ private suspend fun traducirCliente(e: ClientRequestException): ErrorApiExceptio
             ErrorApi.Validacion(cuerpo?.validationErrors.orEmpty())
         )
         404 -> ErrorApiException(ErrorApi.NoEncontrado)
+        401 -> ErrorApiException(ErrorApi.NoAutorizado)
+
+        403 -> ErrorApiException(ErrorApi.SinPrivilegio)
         409 -> ErrorApiException(
             ErrorApi.Conflicto(cuerpo?.message ?: "Operación no permitida")
         )
         else -> ErrorApiException(ErrorApi.Servidor)
+
     }
 }
