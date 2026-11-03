@@ -1,4 +1,4 @@
-CREATE TABLE producto(
+CREATE TABLE producto (
     id INTEGER NOT NULL PRIMARY KEY,
     nombre TEXT NOT NULL,
     precio REAL NOT NULL,
@@ -6,23 +6,84 @@ CREATE TABLE producto(
     descripcion TEXT NOT NULL DEFAULT '',
     categoria TEXT NOT NULL DEFAULT 'Sin categoría',
     estado INTEGER NOT NULL DEFAULT 1,
-    pendiente INTEGER NOT NULL DEFAULT 0
+    pendiente INTEGER NOT NULL DEFAULT 0,
+    intentos INTEGER NOT NULL DEFAULT 0,
+    ultimoError TEXT,
+    fallida INTEGER NOT NULL DEFAULT 0
 );
 
 listarTodos:
-SELECT * FROM producto ORDER BY nombre ASC;
+SELECT *
+FROM producto
+ORDER BY nombre ASC;
 
 listarPendientes:
-SELECT * FROM producto WHERE pendiente = 1;
+SELECT *
+FROM producto
+WHERE pendiente = 1;
+
+pendientesPorEnviar:
+SELECT *
+FROM producto
+WHERE pendiente = 1
+  AND fallida = 0
+  AND intentos < :maxIntentos
+ORDER BY id;
+
+contarPendientes:
+SELECT COUNT(*)
+FROM producto
+WHERE pendiente = 1
+  AND fallida = 0;
+
+contarFallidas:
+SELECT COUNT(*)
+FROM producto
+WHERE pendiente = 1
+  AND fallida = 1;
 
 insertar:
-INSERT OR REPLACE INTO producto VALUES(?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO producto (
+    id,
+    nombre,
+    precio,
+    stock,
+    descripcion,
+    categoria,
+    estado,
+    pendiente
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 borrarSincronizados:
-DELETE FROM producto WHERE pendiente = 0;
+DELETE FROM producto
+WHERE pendiente = 0;
 
 siguienteIdLocal:
-SELECT COALESCE(MIN(id), 0) FROM producto;
+SELECT COALESCE(MIN(id), 0)
+FROM producto;
 
 marcarSincronizado:
-UPDATE producto SET id = :idReal, pendiente = 0 WHERE id = :idLocal;
+UPDATE producto
+SET id = :idReal,
+    pendiente = 0,
+    intentos = 0,
+    ultimoError = NULL,
+    fallida = 0
+WHERE id = :idLocal;
+
+sumarIntento:
+UPDATE producto
+SET intentos = intentos + 1,
+    ultimoError = :mensaje,
+    fallida = CASE
+        WHEN intentos + 1 >= :maxIntentos THEN 1
+        ELSE 0
+    END
+WHERE id = :id;
+
+marcarFallida:
+UPDATE producto
+SET fallida = 1,
+    ultimoError = :mensaje
+WHERE id = :id;
