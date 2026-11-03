@@ -8,5 +8,11 @@ interface ProductoRepository {
     suspend fun registrar(producto: Producto): Producto
     suspend fun actualizar(producto: Producto): Producto
     suspend fun eliminar(id: Long)
+    suspend fun reintentarEnvio(id: Long) {
+        throw UnsupportedOperationException("Reintento no disponible en este repositorio")
+    }
+    suspend fun sincronizarRevisadas() {
+        throw UnsupportedOperationException("Reenvío no disponible")
+    }
     suspend fun sincronizar()
 }

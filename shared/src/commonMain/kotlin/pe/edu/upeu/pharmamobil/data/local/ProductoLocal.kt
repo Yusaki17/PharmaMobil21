@@ -54,6 +54,10 @@ class ProductoLocal(base: PharmaDb) {
             id = id
         )
     }
+    fun reiniciarEnvio(id: Long) {
+        consultas.reiniciarEnvio(id)
+    }
+
     fun guardarPendiente(producto: Producto): Producto {
         val menor = consultas.siguienteIdLocal().executeAsOne()
         val local = producto.copy(

@@ -139,7 +139,7 @@ class ProductoViewModelTest {
         assertEquals("", estado.formulario.precio)
         assertEquals("", estado.formulario.stock)
         assertEquals(
-            "Producto registrado correctamente",
+            "Producto confirmado por el servidor.",
             estado.mensajeExito
         )
     }
@@ -168,5 +168,6 @@ class ProductoViewModelTest {
         assertEquals("", vm.uiState.value.formulario.nombre)
     }
 }
+
 
 

@@ -29,8 +29,23 @@ class ProductoRepositorioOffline(
 
     override suspend fun registrar(producto: Producto): Producto {
         val guardado = local.guardarPendiente(producto)
-        intentar { sincronizar() }
-        return guardado
+        try {
+            sincronizar()
+        } catch (_: ErrorApiException) {
+            // El producto ya existe localmente. No informar que el guardado falló.
+        }
+        return local.pendientes().find { it.id == guardado.id }
+            ?: guardado.copy(pendiente = false, fallida = false, ultimoError = null)
+    }
+
+    override suspend fun reintentarEnvio(id: Long) {
+        sincronizacion.withLock {
+            val producto = local.pendientes().find { it.id == id }
+                ?: throw IllegalArgumentException("El producto ya no está pendiente.")
+            require(producto.fallida) { "El envío no requiere revisión." }
+            local.reiniciarEnvio(id)
+        }
+        sincronizar()
     }
 
     override suspend fun actualizar(producto: Producto): Producto {
@@ -46,7 +61,22 @@ class ProductoRepositorioOffline(
         sincronizar()
     }
 
+    override suspend fun sincronizarRevisadas() {
+        sincronizacion.withLock {
+            // No modificar la cola si no hay conexión o la sesión no es válida.
+            llamar { remoto.listar(pagina = 0, tamanio = 1) }
+            local.pendientes().filter { it.fallida }.forEach {
+                local.reiniciarEnvio(it.id)
+            }
+        }
+        sincronizar()
+    }
+
     override suspend fun sincronizar() = sincronizacion.withLock {
+        // Sin red, conservar las filas como pendientes sin intentar el POST.
+        if (local.pendientesPorEnviar(5).isNotEmpty()) {
+            llamar { remoto.listar(pagina = 0, tamanio = 1) }
+        }
         subirPendientes()                                                // 1.º SUBE
         // Conserva la caché anterior hasta descargar todas las páginas.
         val productos = mutableListOf<Producto>()
@@ -174,3 +204,4 @@ class ProductoRepositorioOffline(
         }
     }
 }
+

@@ -69,6 +69,16 @@ fun ProductoScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    var confirmarReenvios by remember { mutableStateOf(false) }
+    if (confirmarReenvios) {
+        AlertDialog(
+            onDismissRequest = { confirmarReenvios = false },
+            title = { Text("Sincronizar productos revisados") },
+            text = { Text("Hay ${uiState.fallidas} productos cuyo envío no se confirmó. Comprueba que ninguno exista ya en el servidor. Al continuar se volverán a enviar y podrían duplicarse si ya existen.") },
+            confirmButton = { TextButton(onClick = { confirmarReenvios = false; viewModel.sincronizarRevisadas() }) { Text("Revisé: reenviar") } },
+            dismissButton = { TextButton(onClick = { confirmarReenvios = false }) { Text("Cancelar") } }
+        )
+    }
     var mostrarFormulario by remember { mutableStateOf(false) }
     var busqueda by remember { mutableStateOf("") }
     LaunchedEffect(uiState.editando) {
@@ -132,8 +142,8 @@ fun ProductoScreen(
                         Text("${uiState.fallidas} requieren revisión", color = MaterialTheme.colorScheme.error)
                         Text("Abre Ver detalle para conocer el motivo. Comprueba el servidor antes de reenviar.", style = MaterialTheme.typography.bodySmall)
                     }
-                    TextButton(onClick = viewModel::sincronizar, enabled = !uiState.sincronizando) {
-                        Text(if (uiState.sincronizando) "Sincronizando…" else "Sincronizar pendientes")
+                    TextButton(onClick = { if (uiState.fallidas > 0) confirmarReenvios = true else viewModel.sincronizar() }, enabled = !uiState.sincronizando) {
+                        Text(if (uiState.sincronizando) "Sincronizando…" else if (uiState.fallidas > 0) "Revisar y sincronizar" else "Sincronizar pendientes")
                     }
                 }
             }
@@ -187,6 +197,7 @@ fun ProductoScreen(
                                 onEditar = { viewModel.prepararEdicion(producto); mostrarFormulario = true },
                                 onEliminar = { viewModel.eliminar(producto.id) },
                                 onReactivar = { viewModel.reactivar(producto) },
+                                onReintentar = { viewModel.reintentarEnvio(producto.id) },
                                 onCompartir = {
                                     val texto = "📦 ${producto.nombre}\n💰 ${producto.precio}\n📦 Stock: ${producto.stock}"
                                     compartidor.compartir(texto)
@@ -326,11 +337,22 @@ private fun ProductoItem(
     onEliminar: () -> Unit = {},
     onReactivar: () -> Unit = {},
     onCompartir: () -> Unit = {},
+    onReintentar: () -> Unit = {},
     onCopiar: () -> Unit = {}
 ) {
+    var confirmarReintento by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var detalle by remember { mutableStateOf(false) }
     var confirmarEliminar by remember { mutableStateOf(false) }
+    if (confirmarReintento) {
+        AlertDialog(
+            onDismissRequest = { confirmarReintento = false },
+            title = { Text("Revisar antes de reenviar") },
+            text = { Text("Comprueba en el servidor si este producto ya fue creado. Si existe, no lo reenvíes. Repetir una creación puede duplicarla.") },
+            confirmButton = { TextButton(onClick = { confirmarReintento = false; onReintentar() }) { Text("No existe: reenviar") } },
+            dismissButton = { TextButton(onClick = { confirmarReintento = false }) { Text("Cancelar") } }
+        )
+    }
     if (detalle) {
         AlertDialog(
             onDismissRequest = { detalle = false },
@@ -345,10 +367,15 @@ private fun ProductoItem(
                     if (producto.fallida) {
                         Text("No se pudo confirmar el envío", color = MaterialTheme.colorScheme.error)
                         Text(producto.ultimoError ?: "Revisa el producto antes de volver a enviarlo.")
+                        TextButton(onClick = { detalle = false; confirmarReintento = true }) { Text("Revisar y reenviar") }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { detalle = false }) { Text("Cerrar") } }
+            confirmButton = {
+                if (producto.fallida) TextButton(onClick = { detalle = false; confirmarReintento = true }) { Text("Reenviar") }
+                else TextButton(onClick = { detalle = false }) { Text("Cerrar") }
+            },
+            dismissButton = { if (producto.fallida) TextButton(onClick = { detalle = false }) { Text("Cerrar") } }
         )
     }
     if (confirmarEliminar) {

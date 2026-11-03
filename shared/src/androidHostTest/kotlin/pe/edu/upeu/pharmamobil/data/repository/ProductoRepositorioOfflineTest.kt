@@ -21,6 +21,25 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ProductoRepositorioOfflineTest {
+    @Test fun sinConexionConservaPendienteSinIntentarCrear() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        PharmaDb.Schema.create(driver)
+        val local = ProductoLocal(PharmaDb(driver))
+        val metodos = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            metodos.add(request.method.value)
+            throw kotlinx.io.IOException("Sin conexión")
+        }) { expectSuccess = true; install(ContentNegotiation) { json() } }
+        try {
+            val repo = ProductoRepositorioOffline(local, ProductoApi(client))
+            val producto = repo.registrar(Producto(id = 0, nombre = "Offline", precio = 10.0))
+            assertTrue(producto.pendiente)
+            assertTrue(!producto.fallida)
+            assertEquals(listOf("GET"), metodos)
+            assertEquals(1, local.pendientesPorEnviar(5).size)
+        } finally { client.close(); driver.close() }
+    }
+
     private fun pagina(numero: Int, ultima: Boolean, id: Int) =
         """{"contenido":[{"id":$id,"nombre":"Producto $id","precio":12.5,"stock":5}],"pagina":$numero,"tamanio":100,"totalElementos":2,"totalPaginas":2,"ultima":$ultima}"""
 

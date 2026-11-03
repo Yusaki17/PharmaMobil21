@@ -76,6 +76,38 @@ class ProductoViewModel(
     }
 
     // === FORMULARIO (sin cambios) ===
+    fun sincronizarRevisadas() {
+        if (_uiState.value.sincronizando) return
+        _uiState.update { it.copy(sincronizando = true, avisoRed = null, mensajeExito = null) }
+        viewModelScope.launch {
+            val resultado = resultadoDe { repositorio.sincronizarRevisadas() }
+            _uiState.update { estado ->
+                estado.copy(
+                    sincronizando = false,
+                    avisoRed = when {
+                        resultado.isFailure -> "No se pudo sincronizar. Revisa tu conexión, sesión y el detalle del producto."
+                        productosCompletos.any { it.fallida } -> "Hay envíos que requieren revisión. Abre Ver detalle."
+                        else -> null
+                    }
+                )
+            }
+        }
+    }
+
+    fun reintentarEnvio(id: Long) {
+        if (_uiState.value.operacion is ProductoUiState.Operacion.EnCurso) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(operacion = ProductoUiState.Operacion.EnCurso(ProductoUiState.Operacion.Tipo.Crear), mensajeExito = null) }
+            val resultado = resultadoDe { repositorio.reintentarEnvio(id) }
+            _uiState.update {
+                it.copy(
+                    operacion = ProductoUiState.Operacion.Inactiva,
+                    avisoRed = if (resultado.isFailure) "No se pudo completar la sincronización. Revisa el estado del producto." else it.avisoRed
+                )
+            }
+        }
+    }
+
     fun onNombreChange(nombre: String) {
         _uiState.update {
             it.copy(formulario = it.formulario.copy(nombre = nombre, nombreError = null), mensajeExito = null)
@@ -128,15 +160,16 @@ class ProductoViewModel(
             }
 
             resultado.fold(
-                onSuccess = {
+                onSuccess = { guardado ->
                     _uiState.update {
                         it.copy(
                             operacion = ProductoUiState.Operacion.Inactiva,
                             formulario = FormularioProducto(),
                             editando = false,
-                            mensajeExito = if (productoEnEdicion == null)
-                                "Producto registrado correctamente"
-                            else "Producto actualizado correctamente"
+                            mensajeExito = if (productoEnEdicion == null) {
+                                if (guardado.pendiente) "Producto guardado en el dispositivo. Envío pendiente de confirmar."
+                                else "Producto confirmado por el servidor."
+                            } else "Producto actualizado correctamente"
                         )
                     }
                     productoEnEdicion = null

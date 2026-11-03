@@ -87,3 +87,7 @@ UPDATE producto
 SET fallida = 1,
     ultimoError = :mensaje
 WHERE id = :id;
+reiniciarEnvio:
+UPDATE producto
+SET intentos = 0, ultimoError = NULL, fallida = 0
+WHERE id = :id AND pendiente = 1 AND fallida = 1;
